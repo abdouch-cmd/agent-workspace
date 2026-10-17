@@ -1,4 +1,5 @@
 import requests
+
 URL = "http://localhost:11434/api/chat"
 def ask_ai(message):
     data = {
