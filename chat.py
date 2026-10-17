@@ -1,6 +1,8 @@
 import requests
 URL = "http://localhost:11434/api/chat"
-history = []
+SYSTEM_PROMPT = "You are Dev, a helpful Python developer. You answer short and clear, and you always give a small code example."
+
+history = [{"role": "system", "content": SYSTEM_PROMPT}]
 while True:
     message = input("Enter your message: ")
 
