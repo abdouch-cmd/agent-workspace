@@ -20,6 +20,12 @@ def read_file(path):
     with open(full_path, "r", encoding="utf-8") as f:
         return f.read()
 
+# Tool: list all files in the workspace folder
+def list_files():
+    files = os.listdir(WORKSPACE)  # names of everything inside the folder
+    if not files:
+        return "The workspace is empty."
+    return "\n".join(files)  # one file name per line
 
 URL = "http://localhost:11434/api/chat"
 
@@ -39,6 +45,18 @@ TOOLS = [
                     "path": {"type": "string", "description": "File name, e.g. solution.py"}
                 },
                 "required": ["path"],  # path is not optional
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",  # must match our Python function name
+            "description": "List all files in the workspace folder.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
             },
         },
     }
@@ -74,8 +92,11 @@ while True:
         args = call["function"]["arguments"]  # its inputs, e.g. {"path": "solution.py"}
         print(f"[Tool] {name}({args})")
 
+        # Run the real Python function based on the tool name
         if name == "read_file":
-            result = read_file(args["path"])  # run the real Python function
+            result = read_file(args["path"])
+        elif name == "list_files":
+            result = list_files()
         else:
             result = "Error: unknown tool."
 
