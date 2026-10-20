@@ -28,16 +28,33 @@ DEV = (
     "Answer with short, working Python code and one sentence of explanation."
 )
 REVIEWER = (
-    "You are a code reviewer. Review the code you get. "
-    "Answer with a short review and one suggestion for improvement."
+    "You are a strict code reviewer. You get a task and the code for it. "
+    "Check if the code really does the task and runs without errors. "
+    "If it is good, answer only: APPROVED. "
+    "If not, answer: CHANGES: followed by a short list of what to fix."
 )
 
 request = input("Your request: ")
 
 task = run_agent(MANAGER, request)
 print("\n[Manager -> Dev]:", task)
-result = run_agent(DEV, task)
-print("\n[Dev]:", result)
-review_input = f"Task:\n{task}\n\nCode from Dev:\n{result}"
-review = run_agent(REVIEWER, review_input)
-print("\n[Reviewer]:", review)
+dev_input = task
+
+for attempt in range(1, 4):
+    print(f"\n--- Attempt {attempt} ---")
+
+    result = run_agent(DEV, dev_input)
+    print("\n[Dev]:", result)
+
+    review_input = f"Task:\n{task}\n\nCode from Dev:\n{result}"
+    review = run_agent(REVIEWER, review_input)
+    print("\n[Reviewer]:", review)
+
+    if review.strip().startswith("APPROVED"):
+        print("\nApproved!")
+        break
+
+    dev_input = (
+        f"Task:\n{task}\n\nYour last code:\n{result}\n\n"
+        f"Reviewer feedback:\n{review}\n\nFix the code."
+    )
