@@ -108,7 +108,7 @@ def ask_ai(messages):
 
 # The conversation starts with the user's question
 messages = [
-    {"role": "system", "content": "You are a helpful assistant. Use your tools when you need to read files."},
+    {"role": "system", "content": "You are a helpful assistant. Always use your tools to read, list and write files. Never just show code, save it with write_file."},
     {"role": "user", "content": input("You: ")},
 ]
 

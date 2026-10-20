@@ -1,4 +1,5 @@
 import requests
+import os
 
 URL = "http://localhost:11434/api/chat"
 
@@ -15,6 +16,18 @@ def run_agent(system_prompt, task):
         {"role": "user", "content": task},
     ]
     return ask_ai(messages)
+# The AI answers with text + code between ``` marks.
+# This function keeps only the code part.
+def extract_code(text):
+    if "```" not in text:
+        return text  # no ``` marks: return everything
+
+    code = text.split("```")[1]  # the part between the first two ```
+
+    if code.startswith("python"):
+        code = code[len("python"):]  # remove the word "python"
+
+    return code.strip()  # remove spaces at start and end
 
 
 MANAGER = (
@@ -39,6 +52,7 @@ request = input("Your request: ")
 task = run_agent(MANAGER, request)
 print("\n[Manager -> Dev]:", task)
 dev_input = task
+approved = False  # becomes True when the Reviewer says APPROVED
 
 for attempt in range(1, 4):
     print(f"\n--- Attempt {attempt} ---")
@@ -52,9 +66,23 @@ for attempt in range(1, 4):
 
     if review.strip().startswith("APPROVED"):
         print("\nApproved!")
+        approved = True
         break
 
     dev_input = (
         f"Task:\n{task}\n\nYour last code:\n{result}\n\n"
         f"Reviewer feedback:\n{review}\n\nFix the code."
     )
+
+
+# Human approval: only save if the user says yes
+if approved:
+    answer = input("\nSave the code to workspace/solution.py? (y/n): ")
+    if answer == "y":
+        code = extract_code(result)
+        os.makedirs("workspace", exist_ok=True)  # create folder if missing
+        with open("workspace/solution.py", "w", encoding="utf-8") as f:  # "w" = write
+            f.write(code)
+        print("Saved!")
+else:
+    print("\nNot approved after 3 attempts. Nothing saved.")
