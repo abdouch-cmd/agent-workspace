@@ -3,16 +3,21 @@ import requests
 
 # Full path of the workspace folder, e.g. C:\...\agent-workspace\workspace
 WORKSPACE = os.path.abspath("workspace")
+os.makedirs(WORKSPACE, exist_ok=True)  # make sure the folder exists
 
+
+# Security check used by all tools.
+# Returns the full path if it's inside the workspace, otherwise None.
+def safe_path(path):
+    full_path = os.path.abspath(os.path.join(WORKSPACE, path))
+    if not full_path.startswith(WORKSPACE + os.sep):
+        return None
+    return full_path
 
 def read_file(path):
-    # Build the full path and clean it (abspath resolves ".." for us)
-    full_path = os.path.abspath(os.path.join(WORKSPACE, path))
-
-    # Security: refuse anything outside the workspace folder
-    if not full_path.startswith(WORKSPACE + os.sep):
+    full_path = safe_path(path)
+    if full_path is None:
         return "Error: you can only read files inside the workspace."
-
     # File doesn't exist -> tell the AI instead of crashing
     if not os.path.exists(full_path):
         return "Error: file not found."
@@ -26,6 +31,22 @@ def list_files():
     if not files:
         return "The workspace is empty."
     return "\n".join(files)  # one file name per line
+
+# Tool: write a file in the workspace, only if the user allows it
+def write_file(path, content):
+    full_path = safe_path(path)
+    if full_path is None:
+        return "Error: you can only write files inside the workspace."
+
+    # Human approval: show what the AI wants to write, then ask
+    print(f"\n[AI wants to write {path}]\n{content}\n")
+    answer = input("Allow? (y/n): ")
+    if answer != "y":
+        return "Error: the user did not allow this."
+
+    with open(full_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return f"Saved {path}."
 
 URL = "http://localhost:11434/api/chat"
 
@@ -58,7 +79,22 @@ TOOLS = [
                 "properties": {},
                 "required": [],
             },
-        },
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",  # must match our Python function name
+            "description": "Write a text file in the workspace folder.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File name, e.g. solution.py"},
+                    "content": {"type": "string", "description": "The text to write into the file."}
+                },
+                "required": ["path", "content"],
+            },
+        }
     }
 ]
 
@@ -97,6 +133,8 @@ while True:
             result = read_file(args["path"])
         elif name == "list_files":
             result = list_files()
+        elif name == "write_file":
+            result = write_file(args["path"], args["content"])
         else:
             result = "Error: unknown tool."
 
