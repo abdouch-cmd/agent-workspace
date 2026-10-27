@@ -1,88 +1,56 @@
-import requests
-import os
+from agent import run_agent  # one function for all agents
 
-URL = "http://localhost:11434/api/chat"
-
-
-def ask_ai(messages):
-    data = {"model": "qwen3:4b", "messages": messages, "stream": False}
-    response = requests.post(URL, json=data)
-    return response.json()["message"]["content"]
-
-
-def run_agent(system_prompt, task):
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": task},
-    ]
-    return ask_ai(messages)
-# The AI answers with text + code between ``` marks.
-# This function keeps only the code part.
-def extract_code(text):
-    if "```" not in text:
-        return text  # no ``` marks: return everything
-
-    code = text.split("```")[1]  # the part between the first two ```
-
-    if code.startswith("python"):
-        code = code[len("python"):]  # remove the word "python"
-
-    return code.strip()  # remove spaces at start and end
-
-
+# Manager: plans only, no tools
 MANAGER = (
     "You are the Manager of a small team. You never do the work yourself. "
     "Turn the user's request into one clear, short task for the developer. "
     "Answer only with the task."
 )
 
+# Dev: writes the code into a real file
 DEV = (
     "You are Dev, a Python developer. Do the task you get. "
-    "Answer with short, working Python code and one sentence of explanation."
+    "Always save your code with the write_file tool as solution.py. "
+    "After saving, answer with one sentence about what the code does."
 )
+
+# Reviewer: reads the real file and checks it
 REVIEWER = (
-    "You are a strict code reviewer. You get a task and the code for it. "
-    "Check if the code really does the task and runs without errors. "
+    "You are a strict code reviewer. You get a task. "
+    "Read solution.py with the read_file tool and check if the code really does the task "
+    "and runs without errors. "
     "If it is good, answer only: APPROVED. "
     "If not, answer: CHANGES: followed by a short list of what to fix."
 )
 
 request = input("Your request: ")
 
-task = run_agent(MANAGER, request)
+task = run_agent(MANAGER, request)  # no tools needed
 print("\n[Manager -> Dev]:", task)
+
 dev_input = task
-approved = False  # becomes True when the Reviewer says APPROVED
+approved = False
 
 for attempt in range(1, 4):
     print(f"\n--- Attempt {attempt} ---")
 
-    result = run_agent(DEV, dev_input)
+    result = run_agent(DEV, dev_input, use_tools=True)
     print("\n[Dev]:", result)
 
-    review_input = f"Task:\n{task}\n\nCode from Dev:\n{result}"
-    review = run_agent(REVIEWER, review_input)
+    review = run_agent(REVIEWER, f"Task:\n{task}", use_tools=True)
     print("\n[Reviewer]:", review)
 
     if review.strip().startswith("APPROVED"):
-        print("\nApproved!")
         approved = True
         break
 
+    # Not approved: send the feedback back to Dev
     dev_input = (
-        f"Task:\n{task}\n\nYour last code:\n{result}\n\n"
-        f"Reviewer feedback:\n{review}\n\nFix the code."
+        f"Task:\n{task}\n\nReviewer feedback:\n{review}\n\n"
+        "Read solution.py, fix it, and save it again with write_file."
     )
 
-
-# Human approval: only save if the user says yes
 if approved:
-    answer = input("\nSave the code to workspace/solution.py? (y/n): ")
-    if answer == "y":
-        code = extract_code(result)
-        os.makedirs("workspace", exist_ok=True)  # create folder if missing
-        with open("workspace/solution.py", "w", encoding="utf-8") as f:  # "w" = write
-            f.write(code)
-        print("Saved!")
+    print("\nApproved! The code is in workspace/solution.py")
 else:
-    print("\nNot approved after 3 attempts. Nothing saved.")
+    print("\nNot approved after 3 attempts.")
