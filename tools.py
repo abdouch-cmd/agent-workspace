@@ -30,6 +30,16 @@ def write_file(path, content):
     full_path = safe_path(path)
     if full_path is None:
         return "Error: you can only write files inside the workspace."
+        # Human approval: show what the AI wants to write, then ask
+    print(f"\n[AI wants to write {path}]\n{content}\n")
+    answer = input("Allow? (y/n): ")
+    if answer != "y":
+        return "Error: the user did not allow this."
+
+    with open(full_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return f"Saved {path}."
+
 TOOLS = [
     {
         "type": "function",
